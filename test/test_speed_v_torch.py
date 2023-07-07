@@ -1,15 +1,4 @@
-import os
-os.environ["NVIDIA_TF32_OVERRIDE"] = "0"
-os.environ["MKL_NUM_THREADS"] = "1"
-os.environ["NUMEXPR_NUM_THREADS"] = "1"
-os.environ["OMP_NUM_THREADS"] = "1"
-import unittest
-import torch
-torch.set_num_threads(1)
-import time
-import numpy as np
-np.set_printoptions(linewidth=160)
-from functools import partial
+import os, unittest, torch, time, numpy as np
 from tinygrad.lazy import Device
 from tinygrad.ops import GlobalCounters
 from tinygrad.tensor import Tensor
@@ -17,26 +6,14 @@ from tinygrad.nn import Conv2d
 from tinygrad.helpers import colored, getenv, DEBUG
 from tinygrad.jit import TinyJit
 
+torch.set_num_threads(1)
+np.set_printoptions(linewidth=160)
+os.environ.update({var: "1" for var in ["MKL_NUM_THREADS", "NUMEXPR_NUM_THREADS", "OMP_NUM_THREADS"]}, NVIDIA_TF32_OVERRIDE="0")
 IN_CHANS = [int(x) for x in getenv("IN_CHANS", "4,16,64").split(",")]
-
 torch_device = torch.device('mps' if getenv("MPS", 0) else ('cuda' if getenv("TORCHCUDA", 0) else 'cpu'))
-if str(torch_device) == "mps":
-  import torch.mps
-  sync = lambda: torch.mps.synchronize()
-elif str(torch_device) == "cuda":
-  import torch.cuda
-  sync = lambda: torch.cuda.synchronize()
-else:
-  sync = lambda: None
-
-def colorize_float(x):
-  ret = f"{x:7.2f}x"
-  if x < 0.75:
-    return colored(ret, 'green')
-  elif x > 1.33:
-    return colored(ret, 'red')
-  else:
-    return colored(ret, 'yellow')
+get_sync_func = lambda device: (getattr(__import__('torch.' + device, fromlist=[device]), device).synchronize if device in ["mps", "cuda"] else lambda: None)
+sync = get_sync_func(str(torch_device))
+def colorize_float(x): return colored(f"{x:7.2f}x", 'green' if x < 0.75 else 'red' if x > 1.33 else 'yellow')
 
 save_ops, save_mem = 0, 0
 CNT = 8
