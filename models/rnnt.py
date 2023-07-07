@@ -41,13 +41,13 @@ class RNNT:
       while not_blank and added < 30:
         if len(labels) > 0:
           mask = (mask + 1).clip(0, 1)
-          label = Tensor([[labels[-1] if labels[-1] <= 28 else labels[-1] - 1]], requires_grad=False) + 1 - 1
+          label = Tensor([[labels[-1] if labels[-1] <= 28 else labels[-1] - 1]], requires_grad=False)
         jhc = self._pred_joint(Tensor(logit.numpy()), label, hc, mask)
         k = np.argmax(jhc[0, 0, :29].numpy(), axis=0)
         not_blank = k != 28
         if not_blank:
           labels.append(k)
-          hc = jhc[:, :, 29:] + 1 - 1
+          hc = jhc[:, :, 29:]
         added += 1
     return labels
 
@@ -133,7 +133,7 @@ class LSTM:
 
     output = None
     for t in range(x.shape[0]):
-      hc = _do_step(x[t] + 1 - 1, hc) # TODO: why do we need to do this?
+      hc = _do_step(x[t], hc)
       if output is None:
         output = hc[-1:, :x.shape[1]]
       else:
